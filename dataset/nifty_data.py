@@ -28,39 +28,60 @@ class NiftyReturnsDataset(Dataset):
     def __len__(self):
         return len(self.returns_data)
 
+# def create_dataset(df, start_date, end_date, mean=None, std=None):
+#     data=df
+#     dates = pd.read_pickle('/Users/chinu/Downloads/adarnn/dates.pkl')
+#     label = data[1]
+#     feat=data[0]
+#     feat = feat[:-1, :, :]
+#     label = label[:-1, :, :]
+#     referece_start_time=datetime.datetime(2015, 2, 2, 9, 15,0)
+#     referece_end_time=datetime.datetime(2024, 1, 20, 15, 29, 0)
+#     assert (pd.to_datetime(start_date) - referece_start_time).days >= 0
+#     assert (pd.to_datetime(end_date) - referece_end_time).days <= 0
+#     assert (pd.to_datetime(end_date) - pd.to_datetime(start_date)).days >= 0
+#     index_start = dates.index(pd.to_datetime(start_date).date())
+#     index_end = dates.index(pd.to_datetime(end_date).date())
+#     pdb.set_trace()
+#     # print(index_end)
+#     # print(index_start)
+#     # print(f'*Length of Features {len(feat)}')
+#     # print(f'*{index_end-index_start}')
+#     # print(f'*{len(feat)-index_start}')
+#     feat=feat[index_start: index_end + 1]
+#     label=label[index_start: index_end + 1]
+
+#     return NiftyReturnsDataset(label, feat)
+
 def create_dataset(df, start_date, end_date, mean=None, std=None):
     data=df
     dates = pd.read_pickle('/Users/chinu/Downloads/adarnn/dates.pkl')
-    # pdb.set_trace()
-    # print(data[0])
-    # print(data[1])
     label = data[1]
     feat=data[0]
+    feat = feat[:-1, :, :]
+    label = label[:-1, :, :]
+    label = np.mean(label, axis=1)
+    label = label.flatten()
     referece_start_time=datetime.datetime(2015, 2, 2, 9, 15,0)
-    referece_end_time=datetime.datetime(2024, 1, 23, 15, 29, 0)
-    # pdb.set_trace()
-    # print(start_date)
-    # print(end_date)
-
+    referece_end_time=datetime.datetime(2024, 1, 20, 15, 29, 0)
     assert (pd.to_datetime(start_date) - referece_start_time).days >= 0
     assert (pd.to_datetime(end_date) - referece_end_time).days <= 0
     assert (pd.to_datetime(end_date) - pd.to_datetime(start_date)).days >= 0
-    #index_start=(pd.to_datetime(start_date) - referece_start_time).days
-    #index_end=(pd.to_datetime(end_date) - referece_start_time).days
     index_start = dates.index(pd.to_datetime(start_date).date())
     index_end = dates.index(pd.to_datetime(end_date).date())
-    # pdb.set_trace()
+    
     # print(index_end)
     # print(index_start)
     # print(f'*Length of Features {len(feat)}')
     # print(f'*{index_end-index_start}')
     # print(f'*{len(feat)-index_start}')
-    feat=feat[index_start: index_end + 1]
+    feat=feat[index_start : index_end + 1]
     label=label[index_start: index_end + 1]
-
+    # print(index_start)
+    # print(index_end)
+    # print(feat.shape)
+    # print(label.shape)
     # pdb.set_trace()
-    # print(label)
-    # print(feat)
 
     return NiftyReturnsDataset(label, feat)
 
@@ -84,7 +105,6 @@ def get_nifty_data(data_file, start_time, end_time, batch_size, shuffle=True, me
     df=pd.read_pickle(data_file)
     dataset=create_dataset(df, start_time,
                              end_time, mean=mean, std=std)
-    # pdb.set_trace()
     train_loader=DataLoader(
         dataset, batch_size=batch_size, shuffle=shuffle)
     return train_loader
@@ -93,8 +113,10 @@ def get_nifty_data(data_file, start_time, end_time, batch_size, shuffle=True, me
 def compute_nifty_returns_statistic(file_path, start_date, end_date):
     df = pd.read_pickle(file_path) 
     feat, label= df[0], df[1]
+    feat = feat[:-1, :, :]
+    label = label[:-1, :, :]
     referece_start_time=datetime.datetime(2015, 2, 2, 9, 15,0)
-    referece_end_time=datetime.datetime(2022, 2, 2, 15, 29,0)
+    referece_end_time=datetime.datetime(2021, 1, 12, 15, 29,0)
 
     assert (pd.to_datetime(start_date) - referece_start_time).days >= 0
     assert (pd.to_datetime(end_date) - referece_end_time).days <= 0
@@ -104,7 +126,9 @@ def compute_nifty_returns_statistic(file_path, start_date, end_date):
     feat=feat[index_start: index_end + 1]
     label=label[index_start: index_end + 1]
     feat=feat.reshape(-1, feat.shape[2])
+    # pdb.set_trace()
     mu_train=np.mean(feat, axis=0)
     sigma_train=np.std(feat, axis=0)
-
     return mu_train, sigma_train
+
+

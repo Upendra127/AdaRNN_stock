@@ -52,8 +52,7 @@ def train_AdaRNN(args, model, optimizer, train_loader_list, epoch, dist_old=None
         for data in data_all:
             feature, label_reg = data[0].float(
             ), data[1].float()
-            # print(data[0].shape)
-            # print(data[1].shape)
+
             list_feat.append(feature)
             list_label.append(label_reg)
         
@@ -83,6 +82,9 @@ def train_AdaRNN(args, model, optimizer, train_loader_list, epoch, dist_old=None
             feature_t = list_feat[index[i][1]]
             label_reg_s = list_label[index[i][0]]
             label_reg_t = list_label[index[i][1]]
+            #pdb.set_trace()
+            #print(label_reg_s.shape)
+            #print(label_reg_t.shape)
             feature_all = torch.cat((feature_s, feature_t), 0)
 
              #debugger block
@@ -107,6 +109,9 @@ def train_AdaRNN(args, model, optimizer, train_loader_list, epoch, dist_old=None
 
             loss_s = criterion(pred_s, label_reg_s)
             loss_t = criterion(pred_t, label_reg_t)
+            #pdb.set_trace()
+            #print(pred_s.shape)
+            #print(label_reg_s.shape)
             loss_l1 = criterion_1(pred_s, label_reg_s)
             # loss_s = criterion(pred_s)
             # loss_t = criterion(pred_t)
@@ -316,11 +321,13 @@ def test_epoch_inference(model, test_loader, prefix='Test'):
     criterion = nn.MSELoss()
     criterion_1 = nn.L1Loss()
     i = 0
-    for feature, label, label_reg in tqdm(test_loader, desc=prefix, total=len(test_loader)):
-        # feature, label_reg = feature.float(), label_reg.float()
-        feature, label, label_reg = feature.float(), label_reg.float()
+    #pdb.set_trace()
+
+    for feature, label_reg in tqdm(test_loader, desc=prefix, total=len(test_loader)):
+        feature, label_reg = feature.float(), label_reg.float()
         with torch.no_grad():
             pred = model.predict(feature)
+
         loss = criterion(pred, label_reg)
         loss_r = torch.sqrt(loss)
         loss_1 = criterion_1(pred, label_reg)
@@ -331,6 +338,9 @@ def test_epoch_inference(model, test_loader, prefix='Test'):
             label_list = label_reg.cpu().numpy()
             predict_list = pred.cpu().numpy()
         else:
+            # print(label_list.shape)
+            # print(label_reg.size())
+            # pdb.set_trace()
             label_list = np.hstack((label_list, label_reg.cpu().numpy()))
             predict_list = np.hstack((predict_list, pred.cpu().numpy()))
 
@@ -356,6 +366,7 @@ def inference_all(output_path, model, model_path, loaders):
     i = 0
     list_name = ['train', 'valid', 'test']
     for loader in loaders:
+        # pdb.set_trace()
         loss, loss_1, loss_r, label_list, predict_list = inference(
             model, loader)
         loss_list.append(loss)
@@ -417,9 +428,6 @@ def main_transfer(args):
             model, train_loader_list[0], prefix='Train')
         val_loss, val_loss_l1, val_loss_r = test_epoch(
             model, valid_loader, prefix='Valid')
-        # pdb.set_trace()
-        # print(test_loader)
-        # print(len(test_loader))
         test_loss, test_loss_l1, test_loss_r = test_epoch(
             model, test_loader, prefix='Test')
 
@@ -442,6 +450,8 @@ def main_transfer(args):
     pprint('best val score:', best_score, '@', best_epoch)
 
     loaders = train_loader_list[0], valid_loader, test_loader
+    # pdb.set_trace()
+    # print(test_loader)
     # loaders = train_loader_list[0], test_loader
     loss_list, loss_l1_list, loss_r_list = inference_all(output_path, model, os.path.join(
         output_path, save_model_name), loaders)
@@ -476,7 +486,7 @@ def get_args():
     parser.add_argument('--pre_epoch', type=int, default=40)  # 20, 30, 50
 
     # training
-    parser.add_argument('--n_epochs', type=int, default=200)
+    parser.add_argument('--n_epochs', type=int, default=1)
     parser.add_argument('--lr', type=float, default=5e-4)
     parser.add_argument('--early_stop', type=int, default=40)
     parser.add_argument('--smooth_steps', type=int, default=3)
@@ -485,12 +495,12 @@ def get_args():
     parser.add_argument('--loss_type', type=str, default='adv')
     parser.add_argument('--data_mode', type=str,
                         default='tdc')
-    parser.add_argument('--num_domain', type=int, default=2)
+    parser.add_argument('--num_domain', type=int, default=3)
     parser.add_argument('--len_seq', type=int, default=375)
 
     # other
     parser.add_argument('--seed', type=int, default=10)
-    parser.add_argument('--outdir', default='./outputs')
+    parser.add_argument('--outdir', default='/Users/chinu/Downloads/adarnn/outputs/')
     parser.add_argument('--overwrite', action='store_true')
     parser.add_argument('--log_file', type=str, default='run.log')
     parser.add_argument('--gpu_id', type=int, default=0)
