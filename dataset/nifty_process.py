@@ -133,4 +133,4 @@ def load_nifty_data_multi_domain(file_path, batch_size=6, number_domain=2, mode=
     test_loader = nifty_data.get_nifty_data(data_file, start_time='2022-02-08 09:15:00',
        
                                          end_time='2024-01-20 15:29:00', batch_size=batch_size, mean=mean_train, std=std_train, shuffle=False)
-    return train_list, valid_vld_loader, test_loader 
+    return train_list, valid_vld_loader, test_loader

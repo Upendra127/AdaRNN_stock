@@ -6,6 +6,7 @@ import os
 import argparse
 import datetime
 import numpy as np
+import pandas as pd
 
 from tqdm import tqdm
 from utils import utils
@@ -132,6 +133,7 @@ def train_AdaRNN(args, model, optimizer, train_loader_list, epoch, dist_old=None
         if epoch > args.pre_epoch:
             weight_mat = model.update_weight_Boosting(
                 weight_mat, dist_old, dist_mat)
+
         return loss, loss_l1, weight_mat, dist_mat
     else:
         weight_mat = transform_type(out_weight_list)
@@ -362,6 +364,8 @@ def inference_all(output_path, model, model_path, loaders):
     loss_list = []
     loss_l1_list = []
     loss_r_list = []
+    label_lists = []
+    predict_lists = []
     model.load_state_dict(torch.load(model_path))
     i = 0
     list_name = ['train', 'valid', 'test']
@@ -372,7 +376,21 @@ def inference_all(output_path, model, model_path, loaders):
         loss_list.append(loss)
         loss_l1_list.append(loss_1)
         loss_r_list.append(loss_r)
+        label_lists.append(label_list)
+        predict_lists.append(predict_list)
         i = i + 1
+
+    df = pd.DataFrame({
+        'score': predict_list,
+        'label': label_list
+    })
+    df1 = pd.DataFrame({
+        'loss_l1' : loss_l1_list,
+        'loss_r' : loss_r_list,
+        'loss' : loss_list
+        })
+    df.to_csv('predictions.csv', index=False)
+    df1.to_csv('predictions_loss.csv', index=False)
     return loss_list, loss_l1_list, loss_r_list
 
 
@@ -410,15 +428,21 @@ def main_transfer(args):
     best_score = np.inf
     best_epoch, stop_round = 0, 0
     weight_mat, dist_mat = None, None
+    final_loss_train = []
+    final_loss_valid = []
+    final_loss_test = []
     for epoch in range(args.n_epochs):
         pprint('Epoch:', epoch)
         pprint('training...')
+
         if args.model_name in ['Boosting']:
             loss, loss1, weight_mat, dist_mat = train_epoch_transfer_Boosting(
                 model, optimizer, train_loader_list,  epoch, dist_mat, weight_mat)
+            final_loss_train.append(loss1)
         elif args.model_name in ['AdaRNN']:
             loss, loss1, weight_mat, dist_mat = train_AdaRNN(
                 args, model, optimizer, train_loader_list, epoch, dist_mat, weight_mat)
+            final_loss_train.append(loss1)
         else:
             print("error in model_name!")
         pprint(loss, loss1)
@@ -428,8 +452,10 @@ def main_transfer(args):
             model, train_loader_list[0], prefix='Train')
         val_loss, val_loss_l1, val_loss_r = test_epoch(
             model, valid_loader, prefix='Valid')
+        final_loss_valid.append(val_loss_l1)
         test_loss, test_loss_l1, test_loss_r = test_epoch(
             model, test_loader, prefix='Test')
+        final_loss_test.append(test_loss_l1)
 
         pprint('valid %.6f, test %.6f' %
                (val_loss_l1, test_loss_l1))
@@ -447,6 +473,31 @@ def main_transfer(args):
                 pprint('early stop')
                 break
 
+    if args.model_name in ['Boosting']:
+        color = 'red'
+    else:
+        color = 'blue'
+    plt.plot(final_loss_train, marker = 'o', color=color)
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Training")
+    plt.savefig('train_AdaRNN.png')
+    plt.show()
+
+    plt.plot(final_loss_valid, marker = 'o', color=color)
+    plt.title("Validation")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.savefig('valid_AdaRNN.png')
+    plt.show()
+
+    plt.plot(final_loss_test, marker = 'o', color=color)
+    plt.title("Test")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.savefig('test_AdaRNN.png')
+    plt.show()
+
     pprint('best val score:', best_score, '@', best_epoch)
 
     loaders = train_loader_list[0], valid_loader, test_loader
@@ -455,19 +506,13 @@ def main_transfer(args):
     # loaders = train_loader_list[0], test_loader
     loss_list, loss_l1_list, loss_r_list = inference_all(output_path, model, os.path.join(
         output_path, save_model_name), loaders)
+
     pprint('MSE: train %.6f, valid %.6f, test %.6f' %
            (loss_list[0], loss_list[1], loss_list[2]))
     pprint('L1:  train %.6f, valid %.6f, test %.6f' %
            (loss_l1_list[0], loss_l1_list[1], loss_l1_list[2]))
     pprint('RMSE: train %.6f, valid %.6f, test %.6f' %
            (loss_r_list[0], loss_r_list[1], loss_r_list[2]))
-    pprint('Finished.')
-    pprint('MSE: train %.6f, test %.6f' %
-           (loss_list[0],loss_list[1]))
-    pprint('L1:  train %.6f, test %.6f' %
-           (loss_l1_list[0], loss_l1_list[1]))
-    pprint('RMSE: train %.6f,test %.6f' %
-           (loss_r_list[0], loss_r_list[1]))
     pprint('Finished.')
 
 
@@ -478,15 +523,14 @@ def get_args():
     # model
     parser.add_argument('--model_name', default='AdaRNN')
     parser.add_argument('--d_feat', type=int, default=9)
-
+    parser.add_argument('--num_layers', type=int, default=5)
     parser.add_argument('--hidden_size', type=int, default=64)
-    parser.add_argument('--num_layers', type=int, default=2)
-    parser.add_argument('--dropout', type=float, default=0.0)
+    parser.add_argument('--dropout', type=float, default=0.8)
     parser.add_argument('--class_num', type=int, default=1)
     parser.add_argument('--pre_epoch', type=int, default=40)  # 20, 30, 50
 
     # training
-    parser.add_argument('--n_epochs', type=int, default=1)
+    parser.add_argument('--n_epochs', type=int, default=35)
     parser.add_argument('--lr', type=float, default=5e-4)
     parser.add_argument('--early_stop', type=int, default=40)
     parser.add_argument('--smooth_steps', type=int, default=3)
@@ -500,7 +544,7 @@ def get_args():
 
     # other
     parser.add_argument('--seed', type=int, default=10)
-    parser.add_argument('--outdir', default='/Users/chinu/Downloads/adarnn/outputs/')
+    parser.add_argument('--outdir', default='/Users/chinu/Downloads/adarnn/outputs')
     parser.add_argument('--overwrite', action='store_true')
     parser.add_argument('--log_file', type=str, default='run.log')
     parser.add_argument('--gpu_id', type=int, default=0)
